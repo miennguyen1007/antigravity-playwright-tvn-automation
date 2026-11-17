@@ -1,83 +1,43 @@
-# 🚀 Setup Allure Report on GitHub Pages
+# CI/CD va Allure Report
 
-## Bước 1: Bật GitHub Pages trong Repository Settings
+Workflow nằm tại `.github/workflows/playwright.yml` và chạy khi push hoặc mở pull request vào `main`/`develop`. Push vào `main` sẽ chạy smoke và E2E trên Chromium; pull request cũng chạy hai nhóm này nhưng không publish Pages. Chạy thủ công từ tab **Actions** cho phép chọn `smoke`, `e2e`, `regression` hoặc `all`.
 
-1. Mở repo trên GitHub: https://github.com/miennguyen1007/antigravity-playwright-tvn-automation
-2. Vào **Settings** → **Pages** (menu bên trái)
-3. Tại mục **Source**, chọn:
-   - **Deploy from a branch**
-4. Tại mục **Branch**, chọn:
-   - Branch: `gh-pages`
-   - Folder: `/ (root)`
-5. Click **Save**
+Test results được lưu thành artifact. Allure report được tạo kể cả khi có test fail, để hỗ trợ điều tra; workflow vẫn báo đỏ khi test fail. Report chỉ được publish lên GitHub Pages từ nhánh `main`.
 
-> ⚠️ Branch `gh-pages` sẽ tự động được tạo sau lần chạy workflow đầu tiên.
+## Cấu hình GitHub
 
-## Bước 2: Cấu hình Secrets (nếu cần test với credentials)
+### Secrets
 
-Vào **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
+Trong **Settings → Secrets and variables → Actions**, thêm các repository secrets mà test của repo cần:
 
-| Secret Name      | Value                              |
-|:-----------------|:-----------------------------------|
-| `BASE_URL`       | `https://tvn-sut.info`             |
-| `USER_USERNAME`  | (email đăng nhập test)             |
-| `USER_PASSWORD`  | (password test)                    |
-| `ADMIN_USERNAME` | (email admin, nếu có)              |
-| `ADMIN_PASSWORD` | (password admin, nếu có)           |
+| Secret | Ghi chú |
+|:-------|:--------|
+| `BASE_URL` | Tùy chọn; mặc định là `https://tvn-sut.info` |
+| `USER_USERNAME` | Tài khoản test nếu suite cần đăng nhập |
+| `USER_PASSWORD` | Mật khẩu tài khoản test |
+| `ADMIN_USERNAME` | Tài khoản admin nếu suite cần |
+| `ADMIN_PASSWORD` | Mật khẩu tài khoản admin |
 
-> Nếu không cần test login, bạn có thể bỏ qua bước này.
+Workflow truyền secrets trực tiếp vào môi trường của bước chạy test, không ghi chúng vào file trong workspace. Không commit credentials vào repository.
 
-## Bước 3: Chạy Workflow
+### GitHub Pages
 
-### Tự động chạy khi push:
+Trong **Settings → Pages**, chọn **Deploy from a branch**, branch `gh-pages`, thư mục `/ (root)`, rồi lưu. Workflow sẽ tạo/cập nhật branch này khi có report trên `main`. URL dự kiến:
+
+`https://miennguyen1007.github.io/antigravity-playwright-tvn-automation/`
+
+Nếu deploy bị từ chối, kiểm tra repository có cho phép GitHub Actions ghi nội dung (`contents: write`) hay không.
+
+## Xem report
+
+- Trên `main`: mở URL GitHub Pages ở trên sau khi job deploy hoàn tất.
+- Trên pull request hoặc nhánh khác: tải artifact `allure-report` từ trang workflow run.
+- Kết quả thô nằm trong artifact `allure-results`; Playwright HTML report nằm trong `playwright-report`.
+
+Để tạo và mở report sau khi chạy test cục bộ:
+
 ```bash
-git add .
-git commit -m "feat: add Allure Report on GitHub Pages"
-git push origin main
-```
-
-### Chạy thủ công:
-1. Vào tab **Actions** trên GitHub
-2. Chọn workflow **🎭 Playwright Tests + Allure Report**
-3. Click **Run workflow** → chọn test suite → **Run workflow**
-
-## Bước 4: Xem Allure Report
-
-Sau khi workflow chạy xong (2-5 phút), truy cập:
-
-### 🔗 https://miennguyen1007.github.io/antigravity-playwright-tvn-automation/
-
-Report bao gồm:
-- ✅ **Overview**: Tổng quan pass/fail/broken
-- 📊 **Graphs**: Biểu đồ trend theo từng lần chạy
-- 📋 **Suites**: Chi tiết từng test suite (Smoke, E2E, Regression)
-- 📸 **Attachments**: Screenshots, videos khi test fail
-- 📈 **Timeline**: Thời gian chạy từng test
-
-## Workflow Architecture
-
-```
-push to main
-    │
-    ▼
-┌─────────────────────────────┐
-│ Job 1: test                 │
-│  ├─ smoke:chromium          │
-│  └─ e2e:chromium            │
-│  → Upload allure-results    │
-└──────────┬──────────────────┘
-           │
-           ▼
-┌─────────────────────────────┐
-│ Job 2: allure-report        │
-│  ├─ Download all results    │
-│  ├─ Fetch history (gh-pages)│
-│  ├─ Generate Allure Report  │
-│  └─ Deploy → gh-pages      │
-└──────────┬──────────────────┘
-           │
-           ▼
-    GitHub Pages live
-    (https://<user>.github.io/<repo>/)
+npm run report:allure:generate
+npm run report:allure:open
 ```
 
